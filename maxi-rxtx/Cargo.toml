@@ -1,0 +1,12 @@
+[package]
+name = "maxi-rxtx"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2018"
+
+[dependencies]
+tokio-io = "0.1"
+bytes = "0.4"
+byteorder = "1"
+serde = "1.0"
+ssmarshal = "1.0"
