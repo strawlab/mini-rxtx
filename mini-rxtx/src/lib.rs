@@ -4,9 +4,9 @@ mod framed_serial_reader;
 mod framed_serial_sender;
 
 use crate::framed_serial_reader::FramedReader;
-use crate::framed_serial_sender::FramedSender;
 use heapless::consts::U128;
 use heapless::spsc::Queue;
+use byteorder::ByteOrder;
 
 pub trait TransmitEnabled {
     fn transmit_enabled(&self) -> bool;
@@ -16,7 +16,7 @@ pub struct MiniTxRx<RX,TX> {
     rx: RX,
     tx: TX,
     in_bytes: Queue<u8, U128>,
-    serial_sender: FramedSender,
+    tx_queue: Queue<u8, U128>,
 }
 
 impl<RX,TX> MiniTxRx<RX,TX>
@@ -30,8 +30,8 @@ impl<RX,TX> MiniTxRx<RX,TX>
         rx: RX,
     ) -> Self {
         let in_bytes = Queue::new();
-        let serial_sender = FramedSender::new(Queue::new());
-        Self { rx, tx, in_bytes, serial_sender }
+        let tx_queue = Queue::new();
+        Self { rx, tx, in_bytes, tx_queue }
     }
 
     #[inline]
@@ -43,7 +43,17 @@ impl<RX,TX> MiniTxRx<RX,TX>
     #[inline]
     pub fn send_msg(&mut self, m: SerializedMsg) ->Result<(), u8> {
         // Called with lock.
-        self.serial_sender.send_frame(&m.buf[0..m.n_bytes])
+        let frame = &m.buf[0..m.n_bytes];
+        let mut lenbuf = [0, 0];
+        byteorder::LittleEndian::write_u16(&mut lenbuf, frame.len() as u16);
+
+        for byte in lenbuf.iter() {
+            self.tx_queue.enqueue(*byte)?;
+        }
+        for byte in frame.iter() {
+            self.tx_queue.enqueue(*byte)?;
+        }
+        Ok(())
     }
 
     #[inline]
@@ -64,7 +74,7 @@ impl<RX,TX> MiniTxRx<RX,TX>
         }
 
         if self.tx.transmit_enabled() {
-            match self.serial_sender.pump() {
+            match self.tx_queue.dequeue() {
                 Some(byte) => match self.tx.write(byte) {
                     Ok(()) => {},
                     Err(nb::Error::WouldBlock) => panic!("unreachable"), // transmit_enabled() check prevents this
