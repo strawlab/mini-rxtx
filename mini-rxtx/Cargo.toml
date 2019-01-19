@@ -11,5 +11,3 @@ byteorder = { version = "1", default-features = false }
 heapless = "0.4"
 embedded-hal = "0.2.0"
 serde = {version="1.0", default-features = false }
-
-stm32nucleo-hal = {git="https://bare-git.strawlab.org/stm32nucleo-hal.git", rev="86c452cfd36f38165243b43ba24cb4436b6bbb53"}

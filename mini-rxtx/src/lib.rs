@@ -3,27 +3,31 @@
 mod framed_serial_reader;
 mod framed_serial_sender;
 
-use stm32nucleo_hal::prelude::*;
-use stm32nucleo_hal::stm32f30x::USART2;
-use stm32nucleo_hal::serial::{Rx, Tx};
 use crate::framed_serial_reader::FramedReader;
 use crate::framed_serial_sender::FramedSender;
 use heapless::consts::U128;
 use heapless::spsc::Queue;
 
-// TODO: make generic over more than USART2
-pub struct MiniTxRx {
-    rx: Rx<USART2>,
-    tx: Tx<USART2>,
+pub trait TransmitEnabled {
+    fn transmit_enabled(&self) -> bool;
+}
+
+pub struct MiniTxRx<RX,TX> {
+    rx: RX,
+    tx: TX,
     in_bytes: Queue<u8, U128>,
     serial_sender: FramedSender,
 }
 
-impl MiniTxRx {
+impl<RX,TX> MiniTxRx<RX,TX>
+    where
+        RX: embedded_hal::serial::Read<u8>,
+        TX: embedded_hal::serial::Write<u8> + TransmitEnabled,
+{
     #[inline]
     pub fn new(
-        tx: Tx<USART2>,
-        rx: Rx<USART2>,
+        tx: TX,
+        rx: RX,
     ) -> Self {
         let in_bytes = Queue::new();
         let serial_sender = FramedSender::new(Queue::new());
