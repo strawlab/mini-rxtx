@@ -1,7 +1,6 @@
 #![no_std]
 
 mod framed_serial_reader;
-mod framed_serial_sender;
 
 use crate::framed_serial_reader::FramedReader;
 use heapless::consts::U128;
