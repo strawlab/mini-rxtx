@@ -7,6 +7,17 @@ use heapless::consts::U128;
 use heapless::spsc::Queue;
 use byteorder::ByteOrder;
 
+#[derive(Debug)]
+pub enum Error {
+    SerializeError,
+}
+
+impl From<ssmarshal::Error> for Error {
+    fn from(_orig: ssmarshal::Error) -> Error {
+        Error::SerializeError
+    }
+}
+
 pub trait TransmitEnabled {
     fn transmit_enabled(&self) -> bool;
 }
@@ -101,9 +112,9 @@ impl<'a> SerializedMsg<'a> {
 /// This is not part of MiniTxRx itself because we do not want to require
 /// access to resources when encoding bytes.
 #[inline]
-pub fn serialize_msg<'a,T: serde::ser::Serialize>(msg: T, buf: &'a mut [u8]) -> SerializedMsg<'a> {
-    let n_bytes = ssmarshal::serialize(buf, &msg).unwrap();
-    SerializedMsg { buf, n_bytes }
+pub fn serialize_msg<'a,T: serde::ser::Serialize>(msg: T, buf: &'a mut [u8]) -> Result<SerializedMsg<'a>,Error> {
+    let n_bytes = ssmarshal::serialize(buf, &msg)?;
+    Ok(SerializedMsg { buf, n_bytes })
 }
 
 /// A struct for decoding bytes.
