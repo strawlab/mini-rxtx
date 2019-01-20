@@ -90,12 +90,20 @@ pub struct SerializedMsg<'a> {
     n_bytes: usize,
 }
 
+/// Encode messages into a byte buffer.
+///
+/// This is not part of MiniTxRx itself because we do not want to require
+/// access to resources when encoding bytes.
 #[inline]
 pub fn serialize_msg<'a,T: serde::ser::Serialize>(msg: T, buf: &'a mut [u8]) -> SerializedMsg<'a> {
     let n_bytes = ssmarshal::serialize(buf, &msg).unwrap();
     SerializedMsg { buf, n_bytes }
 }
 
+/// A struct for decoding bytes.
+///
+/// This is not part of MiniTxRx itself because we do not want to require
+/// access to resources when decoding bytes.
 pub struct Decoder {
     inner: FramedReader,
 }
