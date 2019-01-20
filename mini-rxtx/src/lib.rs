@@ -85,15 +85,14 @@ impl<RX,TX> MiniTxRx<RX,TX>
     }
 }
 
-pub struct SerializedMsg {
-    buf: [u8; 32],
+pub struct SerializedMsg<'a> {
+    buf: &'a [u8],
     n_bytes: usize,
 }
 
 #[inline]
-pub fn serialize_msg<T: serde::ser::Serialize>(msg: T) -> SerializedMsg {
-    let mut buf: [u8; 32] = [0; 32];
-    let n_bytes = ssmarshal::serialize(&mut buf, &msg).unwrap();
+pub fn serialize_msg<'a,T: serde::ser::Serialize>(msg: T, buf: &'a mut [u8]) -> SerializedMsg<'a> {
+    let n_bytes = ssmarshal::serialize(buf, &msg).unwrap();
     SerializedMsg { buf, n_bytes }
 }
 
