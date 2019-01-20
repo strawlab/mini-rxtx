@@ -112,8 +112,8 @@ impl<'a> SerializedMsg<'a> {
 /// This is not part of MiniTxRx itself because we do not want to require
 /// access to resources when encoding bytes.
 #[inline]
-pub fn serialize_msg<'a,T: serde::ser::Serialize>(msg: T, buf: &'a mut [u8]) -> Result<SerializedMsg<'a>,Error> {
-    let n_bytes = ssmarshal::serialize(buf, &msg)?;
+pub fn serialize_msg<'a,T: serde::ser::Serialize>(msg: &T, buf: &'a mut [u8]) -> Result<SerializedMsg<'a>,Error> {
+    let n_bytes = ssmarshal::serialize(buf, msg)?;
     Ok(SerializedMsg { buf, n_bytes })
 }
 
