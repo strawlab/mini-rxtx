@@ -119,8 +119,10 @@ impl Decoder {
     {
         match self.inner.consume(byte) {
             Ok(Some(buf)) => {
-                let (msg, _nbytes) = ssmarshal::deserialize(buf).unwrap();
-                Decoded::Msg(msg)
+                match ssmarshal::deserialize(buf) {
+                    Ok((msg, _nbytes)) => Decoded::Msg(msg),
+                    Err(_) => Decoded::Error,
+                }
             },
             Ok(None) => {
                 Decoded::FrameNotYetComplete
