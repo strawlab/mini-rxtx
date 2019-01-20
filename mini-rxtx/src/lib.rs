@@ -90,6 +90,12 @@ pub struct SerializedMsg<'a> {
     n_bytes: usize,
 }
 
+impl<'a> SerializedMsg<'a> {
+    pub fn as_slice(&self) -> &[u8] {
+        &self.buf[0..self.n_bytes]
+    }
+}
+
 /// Encode messages into a byte buffer.
 ///
 /// This is not part of MiniTxRx itself because we do not want to require
