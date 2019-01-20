@@ -53,13 +53,7 @@ impl<RX,TX> MiniTxRx<RX,TX>
     #[inline]
     pub fn send_msg(&mut self, m: SerializedMsg) ->Result<(), u8> {
         // Called with lock.
-        let frame = &m.buf[0..m.n_bytes];
-        let mut lenbuf = [0, 0];
-        byteorder::LittleEndian::write_u16(&mut lenbuf, frame.len() as u16);
-
-        for byte in lenbuf.iter() {
-            self.tx_queue.enqueue(*byte)?;
-        }
+        let frame = &m.buf[0..m.total_bytes];
         for byte in frame.iter() {
             self.tx_queue.enqueue(*byte)?;
         }
@@ -98,12 +92,12 @@ impl<RX,TX> MiniTxRx<RX,TX>
 
 pub struct SerializedMsg<'a> {
     buf: &'a [u8],
-    n_bytes: usize,
+    total_bytes: usize,
 }
 
 impl<'a> SerializedMsg<'a> {
-    pub fn as_slice(&self) -> &[u8] {
-        &self.buf[0..self.n_bytes]
+    pub fn framed_slice(&self) -> &[u8] {
+        &self.buf[0..self.total_bytes]
     }
 }
 
@@ -113,8 +107,12 @@ impl<'a> SerializedMsg<'a> {
 /// access to resources when encoding bytes.
 #[inline]
 pub fn serialize_msg<'a,T: serde::ser::Serialize>(msg: &T, buf: &'a mut [u8]) -> Result<SerializedMsg<'a>,Error> {
-    let n_bytes = ssmarshal::serialize(buf, msg)?;
-    Ok(SerializedMsg { buf, n_bytes })
+    let n_bytes = ssmarshal::serialize(&mut buf[2..], msg)?;
+    if n_bytes > u16::max_value() as usize {
+        return Err(Error::SerializeError);
+    }
+    byteorder::LittleEndian::write_u16(&mut buf[0..2], n_bytes as u16);
+    Ok(SerializedMsg { buf, total_bytes: n_bytes+2 })
 }
 
 /// A struct for decoding bytes.
