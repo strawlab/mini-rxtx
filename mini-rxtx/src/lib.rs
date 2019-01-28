@@ -45,8 +45,13 @@ impl<RX,TX> MiniTxRx<RX,TX>
     }
 
     #[inline]
-    pub fn dequeue(&mut self) -> Option<u8> {
+    pub fn pump(&mut self) -> Option<u8> {
         // Called with lock.
+
+        // Pump the output queue
+        self.pump_sender();
+
+        // Pump the input queue
         self.in_bytes.dequeue()
     }
 
@@ -61,11 +66,25 @@ impl<RX,TX> MiniTxRx<RX,TX>
     }
 
     #[inline]
+    fn pump_sender(&mut self) {
+        if self.tx.transmit_enabled() {
+            match self.tx_queue.dequeue() {
+                Some(byte) => match self.tx.write(byte) {
+                    Ok(()) => {},
+                    Err(nb::Error::WouldBlock) => panic!("unreachable"), // transmit_enabled() check prevents this
+                    Err(nb::Error::Other(_e)) => panic!("unreachable"), // not possible according to function definition
+                },
+                None => {},
+            }
+        }
+    }
+
+    #[inline]
     pub fn on_interrupt(&mut self) {
         // This is called inside the interrupt handler and should do as little
         // as possible.
 
-        // Either we are ready to send or have a new byte (or both?)
+        // We have a new byte
         match self.rx.read() {
             Ok(byte) => {
                 // iprintln!(&mut resources.ITM.stim[0], "serial got byte {}", byte);
@@ -77,16 +96,6 @@ impl<RX,TX> MiniTxRx<RX,TX>
             },
         }
 
-        if self.tx.transmit_enabled() {
-            match self.tx_queue.dequeue() {
-                Some(byte) => match self.tx.write(byte) {
-                    Ok(()) => {},
-                    Err(nb::Error::WouldBlock) => panic!("unreachable"), // transmit_enabled() check prevents this
-                    Err(nb::Error::Other(_e)) => panic!("unreachable"), // not possible according to function definition
-                },
-                None => {},
-            };
-        }
     }
 }
 
