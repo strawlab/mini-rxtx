@@ -1,23 +1,29 @@
 use byteorder::ByteOrder;
 
+const BUFLEN: usize = 256;
+
 /// A struct for decoding bytes.
 ///
 /// This is not part of MiniTxRx itself because we do not want to require
 /// access to resources when decoding bytes.
 pub struct Decoder {
-    inner: FramedReader,
+    buf: [u8; BUFLEN],
+    state: FramedReaderState,
 }
 
 impl Decoder {
     pub fn new() -> Self {
-        Self {inner: FramedReader::new() }
+        Self {
+            buf: [0; BUFLEN],
+            state: FramedReaderState::Empty,
+        }
     }
 
     pub fn consume<T>(&mut self, byte: u8) -> Decoded<T>
         where
             for<'de> T: serde::de::Deserialize<'de>,
     {
-        match self.inner.consume(byte) {
+        match self.consume1(byte) {
             Ok(Some(buf)) => {
                 match ssmarshal::deserialize(buf) {
                     Ok((msg, _nbytes)) => Decoded::Msg(msg),
@@ -32,41 +38,8 @@ impl Decoder {
             }
         }
     }
-}
 
-pub enum Decoded<T> {
-    Msg(T),
-    FrameNotYetComplete,
-    Error,
-}
-
-struct ReadingMessageState {
-    len: u16, // the length when full
-    idx: u16, // the current length
-}
-
-enum FramedReaderState {
-    Empty,
-    ReadingHeader(u8),
-    ReadingMessage(ReadingMessageState),
-    Error,
-}
-
-const BUFLEN: usize = 256;
-
-pub(crate) struct FramedReader {
-    buf: [u8; BUFLEN],
-    state: FramedReaderState,
-}
-
-impl FramedReader {
-    pub(crate) fn new() -> FramedReader {
-        FramedReader {
-            buf: [0; BUFLEN],
-            state: FramedReaderState::Empty,
-        }
-    }
-    pub(crate) fn consume(&mut self, byte: u8) -> Result<Option<&[u8]>, ()> {
+    fn consume1(&mut self, byte: u8) -> Result<Option<&[u8]>, ()> {
         let (new_state, result) = match self.state {
             FramedReaderState::Empty => (FramedReaderState::ReadingHeader(byte), Ok(None)),
             FramedReaderState::ReadingHeader(byte0) => {
@@ -104,4 +77,22 @@ impl FramedReader {
         self.state = new_state;
         result
     }
+}
+
+pub enum Decoded<T> {
+    Msg(T),
+    FrameNotYetComplete,
+    Error,
+}
+
+struct ReadingMessageState {
+    len: u16, // the length when full
+    idx: u16, // the current length
+}
+
+enum FramedReaderState {
+    Empty,
+    ReadingHeader(u8),
+    ReadingMessage(ReadingMessageState),
+    Error,
 }
