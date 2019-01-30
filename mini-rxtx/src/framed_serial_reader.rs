@@ -1,5 +1,45 @@
 use byteorder::ByteOrder;
 
+/// A struct for decoding bytes.
+///
+/// This is not part of MiniTxRx itself because we do not want to require
+/// access to resources when decoding bytes.
+pub struct Decoder {
+    inner: FramedReader,
+}
+
+impl Decoder {
+    pub fn new() -> Self {
+        Self {inner: FramedReader::new() }
+    }
+
+    pub fn consume<T>(&mut self, byte: u8) -> Decoded<T>
+        where
+            for<'de> T: serde::de::Deserialize<'de>,
+    {
+        match self.inner.consume(byte) {
+            Ok(Some(buf)) => {
+                match ssmarshal::deserialize(buf) {
+                    Ok((msg, _nbytes)) => Decoded::Msg(msg),
+                    Err(_) => Decoded::Error,
+                }
+            },
+            Ok(None) => {
+                Decoded::FrameNotYetComplete
+            },
+            Err(_) => {
+                Decoded::Error
+            }
+        }
+    }
+}
+
+pub enum Decoded<T> {
+    Msg(T),
+    FrameNotYetComplete,
+    Error,
+}
+
 struct ReadingMessageState {
     len: u16, // the length when full
     idx: u16, // the current length

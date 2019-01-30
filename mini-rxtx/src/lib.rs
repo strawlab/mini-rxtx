@@ -2,7 +2,7 @@
 
 mod framed_serial_reader;
 
-use crate::framed_serial_reader::FramedReader;
+pub use crate::framed_serial_reader::{Decoder, Decoded};
 use heapless::consts::U128;
 use heapless::spsc::Queue;
 use byteorder::ByteOrder;
@@ -122,44 +122,4 @@ pub fn serialize_msg<'a,T: serde::ser::Serialize>(msg: &T, buf: &'a mut [u8]) ->
     }
     byteorder::LittleEndian::write_u16(&mut buf[0..2], n_bytes as u16);
     Ok(SerializedMsg { buf, total_bytes: n_bytes+2 })
-}
-
-/// A struct for decoding bytes.
-///
-/// This is not part of MiniTxRx itself because we do not want to require
-/// access to resources when decoding bytes.
-pub struct Decoder {
-    inner: FramedReader,
-}
-
-impl Decoder {
-    pub fn new() -> Self {
-        Self {inner: FramedReader::new() }
-    }
-
-    pub fn consume<T>(&mut self, byte: u8) -> Decoded<T>
-        where
-            for<'de> T: serde::de::Deserialize<'de>,
-    {
-        match self.inner.consume(byte) {
-            Ok(Some(buf)) => {
-                match ssmarshal::deserialize(buf) {
-                    Ok((msg, _nbytes)) => Decoded::Msg(msg),
-                    Err(_) => Decoded::Error,
-                }
-            },
-            Ok(None) => {
-                Decoded::FrameNotYetComplete
-            },
-            Err(_) => {
-                Decoded::Error
-            }
-        }
-    }
-}
-
-pub enum Decoded<T> {
-    Msg(T),
-    FrameNotYetComplete,
-    Error,
 }
