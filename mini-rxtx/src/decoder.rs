@@ -1,7 +1,5 @@
 use byteorder::ByteOrder;
 
-const BUFLEN: usize = 256;
-
 pub enum Decoded<T> {
     Msg(T),
     FrameNotYetComplete,
@@ -12,15 +10,15 @@ pub enum Decoded<T> {
 ///
 /// This is not part of MiniTxRx itself because we do not want to require
 /// access to resources when decoding bytes.
-pub struct Decoder {
-    buf: [u8; BUFLEN],
+pub struct Decoder<'a> {
+    buf: &'a mut [u8],
     state: FramedReaderState,
 }
 
-impl Decoder {
-    pub fn new() -> Self {
+impl<'a> Decoder<'a> {
+    pub fn new(buf: &'a mut [u8]) -> Self {
         Self {
-            buf: [0; BUFLEN],
+            buf,
             state: FramedReaderState::Empty,
         }
     }
@@ -34,7 +32,7 @@ impl Decoder {
             FramedReaderState::ReadingHeader(byte0) => {
                 let buf: [u8; 2] = [byte0, byte];
                 let len = ::byteorder::LittleEndian::read_u16(&buf);
-                if (len as usize) > BUFLEN {
+                if (len as usize) > self.buf.len() {
                     (FramedReaderState::Error, Err(crate::Error::TooLong))
                 } else {
                     let rms = ReadingMessageState { len: len, idx: 0 };
