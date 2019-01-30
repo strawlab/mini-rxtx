@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 mod decoder;
 
@@ -12,6 +12,8 @@ pub enum Error {
     SerializeError,
     TooLong,
     PreviousError,
+    Incomplete,
+    ExtraCharactersFound,
 }
 
 impl From<ssmarshal::Error> for Error {
@@ -124,4 +126,50 @@ pub fn serialize_msg<'a,T: serde::ser::Serialize>(msg: &T, buf: &'a mut [u8]) ->
     }
     byteorder::LittleEndian::write_u16(&mut buf[0..2], n_bytes as u16);
     Ok(SerializedMsg { buf, total_bytes: n_bytes+2 })
+}
+
+/// Encode messages into `Vec<u8>`
+///
+/// This is not part of MiniTxRx itself because we do not want to require
+/// access to resources when encoding bytes.
+#[cfg(feature="std")]
+pub fn serialize_msg_owned<T: serde::ser::Serialize>(msg: &T) -> Result<Vec<u8>,Error> {
+    let mut dest = vec![0; 1024];
+    let n_bytes = serialize_msg(msg,&mut dest)?.total_bytes;
+    dest.truncate(n_bytes);
+    Ok(dest)
+}
+
+#[cfg(feature="std")]
+pub fn deserialize_owned<T>(buf: &[u8]) -> Result<T,Error>
+    where
+        for<'de> T: serde::de::Deserialize<'de>,
+{
+    let mut decode_buf = vec![0; 1024];
+    let mut decoder = Decoder::new(&mut decode_buf);
+
+    let mut result: Option<T> = None;
+
+    for char_i in buf {
+
+        if result.is_some() {
+            // no more characters allowed
+            return Err(Error::ExtraCharactersFound);
+        }
+
+        match decoder.consume(*char_i) {
+            Decoded::Msg(msg) => {
+                result = Some(msg);
+            },
+            Decoded::FrameNotYetComplete => {},
+            Decoded::Error(e) => {
+                return Err(e);
+            },
+        }
+    }
+
+    match result {
+        Some(m) => Ok(m),
+        None => Err(Error::Incomplete),
+    }
 }

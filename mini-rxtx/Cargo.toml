@@ -11,3 +11,9 @@ byteorder = { version = "1", default-features = false }
 heapless = "0.4"
 embedded-hal = "0.2.0"
 serde = {version="1.0", default-features = false }
+
+[dev-dependencies]
+serde_derive = "1.0"
+
+[features]
+std = []
