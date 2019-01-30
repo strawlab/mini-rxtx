@@ -1,8 +1,8 @@
 #![no_std]
 
-mod framed_serial_reader;
+mod decoder;
 
-pub use crate::framed_serial_reader::{Decoder, Decoded};
+pub use crate::decoder::{Decoder, Decoded};
 use heapless::consts::U128;
 use heapless::spsc::Queue;
 use byteorder::ByteOrder;
