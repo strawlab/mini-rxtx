@@ -10,6 +10,8 @@ use byteorder::ByteOrder;
 #[derive(Debug)]
 pub enum Error {
     SerializeError,
+    TooLong,
+    PreviousError,
 }
 
 impl From<ssmarshal::Error> for Error {

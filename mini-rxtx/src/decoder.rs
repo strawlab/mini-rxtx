@@ -2,6 +2,12 @@ use byteorder::ByteOrder;
 
 const BUFLEN: usize = 256;
 
+pub enum Decoded<T> {
+    Msg(T),
+    FrameNotYetComplete,
+    Error(crate::Error),
+}
+
 /// A struct for decoding bytes.
 ///
 /// This is not part of MiniTxRx itself because we do not want to require
@@ -23,31 +29,13 @@ impl Decoder {
         where
             for<'de> T: serde::de::Deserialize<'de>,
     {
-        match self.consume1(byte) {
-            Ok(Some(buf)) => {
-                match ssmarshal::deserialize(buf) {
-                    Ok((msg, _nbytes)) => Decoded::Msg(msg),
-                    Err(_) => Decoded::Error,
-                }
-            },
-            Ok(None) => {
-                Decoded::FrameNotYetComplete
-            },
-            Err(_) => {
-                Decoded::Error
-            }
-        }
-    }
-
-    fn consume1(&mut self, byte: u8) -> Result<Option<&[u8]>, ()> {
         let (new_state, result) = match self.state {
             FramedReaderState::Empty => (FramedReaderState::ReadingHeader(byte), Ok(None)),
             FramedReaderState::ReadingHeader(byte0) => {
                 let buf: [u8; 2] = [byte0, byte];
                 let len = ::byteorder::LittleEndian::read_u16(&buf);
                 if (len as usize) > BUFLEN {
-                    // panic!("len too long");
-                    (FramedReaderState::Error, Err(()))
+                    (FramedReaderState::Error, Err(crate::Error::TooLong))
                 } else {
                     let rms = ReadingMessageState { len: len, idx: 0 };
                     (FramedReaderState::ReadingMessage(rms), Ok(None))
@@ -67,22 +55,29 @@ impl Decoder {
                     let result = &self.buf[0..(idx as usize)];
                     (FramedReaderState::Empty, Ok(Some(result)))
                 } else {
-                    // frame longer than expected
-                    // panic!("idx too large");
-                    (FramedReaderState::Error, Err(()))
+                    // Frame langer than expected.
+                    // Theoretically it is impossible to get here, so we panic.
+                    panic!("frame larger than expected");
                 }
             }
-            FramedReaderState::Error => (FramedReaderState::Error, Err(())),
+            FramedReaderState::Error => (FramedReaderState::Error, Err(crate::Error::PreviousError)),
         };
         self.state = new_state;
-        result
+        match result {
+            Ok(Some(buf)) => {
+                match ssmarshal::deserialize(buf) {
+                    Ok((msg, _nbytes)) => Decoded::Msg(msg),
+                    Err(e) => Decoded::Error(e.into()),
+                }
+            },
+            Ok(None) => {
+                Decoded::FrameNotYetComplete
+            },
+            Err(e) => {
+                Decoded::Error(e)
+            }
+        }
     }
-}
-
-pub enum Decoded<T> {
-    Msg(T),
-    FrameNotYetComplete,
-    Error,
 }
 
 struct ReadingMessageState {
