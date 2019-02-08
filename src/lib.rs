@@ -12,7 +12,7 @@ use byteorder::ByteOrder;
 
 #[derive(Debug)]
 pub enum Error {
-    SerializeError,
+    SerializeError(ssmarshal::Error),
     TooLong,
     PreviousError,
     Incomplete,
@@ -20,8 +20,8 @@ pub enum Error {
 }
 
 impl From<ssmarshal::Error> for Error {
-    fn from(_orig: ssmarshal::Error) -> Error {
-        Error::SerializeError
+    fn from(orig: ssmarshal::Error) -> Error {
+        Error::SerializeError(orig)
     }
 }
 
@@ -125,7 +125,7 @@ impl<'a> SerializedMsg<'a> {
 pub fn serialize_msg<'a,T: serde::ser::Serialize>(msg: &T, buf: &'a mut [u8]) -> Result<SerializedMsg<'a>,Error> {
     let n_bytes = ssmarshal::serialize(&mut buf[2..], msg)?;
     if n_bytes > u16::max_value() as usize {
-        return Err(Error::SerializeError);
+        return Err(Error::TooLong);
     }
     byteorder::LittleEndian::write_u16(&mut buf[0..2], n_bytes as u16);
     Ok(SerializedMsg { buf, total_bytes: n_bytes+2 })
