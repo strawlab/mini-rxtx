@@ -3,6 +3,9 @@
 mod decoder;
 
 pub use crate::decoder::{Decoder, Decoded};
+#[cfg(feature="std")]
+pub use crate::decoder::StdDecoder;
+
 use heapless::consts::U128;
 use heapless::spsc::Queue;
 use byteorder::ByteOrder;
@@ -140,13 +143,44 @@ pub fn serialize_msg_owned<T: serde::ser::Serialize>(msg: &T) -> Result<Vec<u8>,
     Ok(dest)
 }
 
+pub fn deserialize_owned_borrowed<T>(buf: &[u8], decode_buf: &mut[u8]) -> Result<T,Error>
+    where
+        for<'de> T: serde::de::Deserialize<'de>,
+{
+    let mut decoder = Decoder::new(decode_buf);
+
+    let mut result: Option<T> = None;
+
+    for char_i in buf {
+
+        if result.is_some() {
+            // no more characters allowed
+            return Err(Error::ExtraCharactersFound);
+        }
+
+        match decoder.consume(*char_i) {
+            Decoded::Msg(msg) => {
+                result = Some(msg);
+            },
+            Decoded::FrameNotYetComplete => {},
+            Decoded::Error(e) => {
+                return Err(e);
+            },
+        }
+    }
+
+    match result {
+        Some(m) => Ok(m),
+        None => Err(Error::Incomplete),
+    }
+}
+
 #[cfg(feature="std")]
 pub fn deserialize_owned<T>(buf: &[u8]) -> Result<T,Error>
     where
         for<'de> T: serde::de::Deserialize<'de>,
 {
-    let mut decode_buf = vec![0; 1024];
-    let mut decoder = Decoder::new(&mut decode_buf);
+    let mut decoder = StdDecoder::new(1024);
 
     let mut result: Option<T> = None;
 
