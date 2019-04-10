@@ -25,30 +25,31 @@ impl From<ssmarshal::Error> for Error {
     }
 }
 
-pub trait TransmitEnabled {
-    fn transmit_enabled(&self) -> bool;
-}
-
 pub struct MiniTxRx<RX,TX> {
     rx: RX,
     tx: TX,
     in_bytes: Queue<u8, U128>,
     tx_queue: Queue<u8, U128>,
+    held_byte: Option<u8>,
 }
 
 impl<RX,TX> MiniTxRx<RX,TX>
     where
         RX: embedded_hal::serial::Read<u8>,
-        TX: embedded_hal::serial::Write<u8> + TransmitEnabled,
+        TX: embedded_hal::serial::Write<u8>,
 {
     #[inline]
     pub fn new(
         tx: TX,
         rx: RX,
     ) -> Self {
-        let in_bytes = Queue::new();
-        let tx_queue = Queue::new();
-        Self { rx, tx, in_bytes, tx_queue }
+        Self {
+            rx,
+            tx,
+            in_bytes: Queue::new(),
+            tx_queue: Queue::new(),
+            held_byte: None,
+        }
     }
 
     #[inline]
@@ -72,15 +73,23 @@ impl<RX,TX> MiniTxRx<RX,TX>
         Ok(())
     }
 
-    #[inline]
+    // inner function called by pump_sender
+    fn send_byte(&mut self, byte: u8) {
+        debug_assert!(self.held_byte.is_none());
+        match self.tx.write(byte) {
+            Ok(()) => {},
+            Err(nb::Error::WouldBlock) => self.held_byte = Some(byte),
+            Err(nb::Error::Other(_e)) => panic!("unreachable"), // not possible according to function definition
+        }
+    }
+
     fn pump_sender(&mut self) {
-        if self.tx.transmit_enabled() {
+        if let Some(byte) = self.held_byte.take() {
+            self.send_byte(byte)
+        }
+        if self.held_byte.is_none() {
             match self.tx_queue.dequeue() {
-                Some(byte) => match self.tx.write(byte) {
-                    Ok(()) => {},
-                    Err(nb::Error::WouldBlock) => panic!("unreachable"), // transmit_enabled() check prevents this
-                    Err(nb::Error::Other(_e)) => panic!("unreachable"), // not possible according to function definition
-                },
+                Some(byte) => self.send_byte(byte),
                 None => {},
             }
         }
