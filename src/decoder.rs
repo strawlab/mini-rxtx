@@ -80,10 +80,15 @@ fn consume_inner<T>(self_state: &mut FramedReaderState, self_buf: &mut[u8], byte
             if (len as usize) > self_buf.len() {
                 (FramedReaderState::Error, Err(crate::Error::TooLong))
             } else {
-                #[cfg(feature="std")]
-                trace!("starting new message with length {}", len);
-                let rms = ReadingMessageState { len: len, idx: 0 };
-                (FramedReaderState::ReadingMessage(rms), Ok(None))
+                if len==0 {
+                    let result: &[u8] = b""; // 0 length slice of u8
+                    (FramedReaderState::Empty, Ok(Some(result)))
+                } else {
+                    #[cfg(feature="std")]
+                    trace!("starting new message with length {}", len);
+                    let rms = ReadingMessageState { len: len, idx: 0 };
+                    (FramedReaderState::ReadingMessage(rms), Ok(None))
+                }
             }
         }
         FramedReaderState::ReadingMessage(ref rms) => {
