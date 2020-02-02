@@ -21,6 +21,23 @@ fn test_roundtrip_std() {
     assert_eq!(msg_orig, msg_actual);
 }
 
+
+#[test]
+fn test_roundtrip_zero_size() {
+
+    let mut dest = vec![0u8; 1024];
+
+    let msg_orig = ();
+    let buf = serialize_msg(&msg_orig, &mut dest).unwrap();
+    let b2 = buf.framed_slice();
+    let mut decode_buf = [0u8; 1024];
+
+    println!("() encoded to bytes: {:?}", b2);
+
+    let msg_actual: () = deserialize_owned_borrowed(&b2,&mut decode_buf).unwrap();
+    assert_eq!(msg_orig, msg_actual);
+}
+
 #[test]
 fn test_roundtrip_nostd() {
     let msg_orig = MsgType{
