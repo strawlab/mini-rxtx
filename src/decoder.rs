@@ -100,7 +100,7 @@ fn consume_inner<T>(self_state: &mut FramedReaderState, self_buf: &mut[u8], byte
                 trace!("got byte in message with length {}", msg_len);
                 let rms = ReadingMessageState {
                     len: msg_len,
-                    idx: idx,
+                    idx,
                 };
                 (FramedReaderState::ReadingMessage(rms), Ok(None))
             } else if idx == msg_len {
