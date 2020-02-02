@@ -6,6 +6,8 @@ pub enum Decoded<T> {
     Error(crate::Error),
 }
 
+#[cfg(feature="std")]
+use log::trace;
 
 /// A struct for decoding bytes.
 ///
@@ -78,6 +80,8 @@ fn consume_inner<T>(self_state: &mut FramedReaderState, self_buf: &mut[u8], byte
             if (len as usize) > self_buf.len() {
                 (FramedReaderState::Error, Err(crate::Error::TooLong))
             } else {
+                #[cfg(feature="std")]
+                trace!("starting new message with length {}", len);
                 let rms = ReadingMessageState { len: len, idx: 0 };
                 (FramedReaderState::ReadingMessage(rms), Ok(None))
             }
@@ -87,12 +91,16 @@ fn consume_inner<T>(self_state: &mut FramedReaderState, self_buf: &mut[u8], byte
             self_buf[idx as usize] = byte;
             idx += 1;
             if idx < msg_len {
+                #[cfg(feature="std")]
+                trace!("got byte in message with length {}", msg_len);
                 let rms = ReadingMessageState {
                     len: msg_len,
                     idx: idx,
                 };
                 (FramedReaderState::ReadingMessage(rms), Ok(None))
             } else if idx == msg_len {
+                #[cfg(feature="std")]
+                trace!("completed message with length {}", msg_len);
                 let result = &self_buf[0..(idx as usize)];
                 (FramedReaderState::Empty, Ok(Some(result)))
             } else {
