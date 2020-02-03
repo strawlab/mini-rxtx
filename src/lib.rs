@@ -6,7 +6,6 @@ pub use crate::decoder::{Decoder, Decoded};
 #[cfg(feature="std")]
 pub use crate::decoder::StdDecoder;
 
-use heapless::consts::U128;
 use heapless::spsc::Queue;
 use byteorder::ByteOrder;
 
@@ -25,18 +24,24 @@ impl From<ssmarshal::Error> for Error {
     }
 }
 
-pub struct MiniTxRx<RX,TX> {
+pub struct MiniTxRx<RX,TX,RxSize,TxSize>
+    where
+        RxSize: heapless::ArrayLength<u8>,
+        TxSize: heapless::ArrayLength<u8>,
+{
     rx: RX,
     tx: TX,
-    in_bytes: Queue<u8, U128>,
-    tx_queue: Queue<u8, U128>,
+    in_bytes: Queue<u8, RxSize>,
+    tx_queue: Queue<u8, TxSize>,
     held_byte: Option<u8>,
 }
 
-impl<RX,TX> MiniTxRx<RX,TX>
+impl<RX,TX,RxSize,TxSize> MiniTxRx<RX,TX,RxSize,TxSize>
     where
         RX: embedded_hal::serial::Read<u8>,
         TX: embedded_hal::serial::Write<u8>,
+        RxSize: heapless::ArrayLength<u8>,
+        TxSize: heapless::ArrayLength<u8>,
 {
     #[inline]
     pub fn new(
@@ -64,7 +69,7 @@ impl<RX,TX> MiniTxRx<RX,TX>
     }
 
     #[inline]
-    pub fn send_msg(&mut self, m: SerializedMsg) ->Result<(), u8> {
+    pub fn send_msg(&mut self, m: SerializedMsg) -> Result<(), u8> {
         // Called with lock.
         let frame = &m.buf[0..m.total_bytes];
         for byte in frame.iter() {
