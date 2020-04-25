@@ -6,16 +6,32 @@ mod decoder;
 pub use crate::decoder::StdDecoder;
 pub use crate::decoder::{Decoded, Decoder};
 
+#[cfg(feature = "std")]
+use thiserror::Error;
+
 use byteorder::ByteOrder;
 use heapless::spsc::Queue;
 
 #[derive(Debug)]
+#[cfg_attr(feature = "std", derive(Error))]
 pub enum Error {
+    #[cfg_attr(feature = "std", error("serialization failed"))]
     SerializeError(ssmarshal::Error),
+    #[cfg_attr(feature = "std", error("too long"))]
     TooLong,
+    #[cfg_attr(feature = "std", error("already experienced an error previously"))]
     PreviousError,
+    #[cfg_attr(feature = "std", error("incomplete"))]
     Incomplete,
+    #[cfg_attr(feature = "std", error("extra characters found"))]
     ExtraCharactersFound,
+}
+
+#[cfg(feature = "std")]
+fn _test_error_is_std() {
+    // Compile-time test to ensure BasicFrame implements Send trait.
+    fn implements<T: std::error::Error>() {}
+    implements::<Error>();
 }
 
 impl From<ssmarshal::Error> for Error {
