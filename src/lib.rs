@@ -2,12 +2,12 @@
 
 mod decoder;
 
-pub use crate::decoder::{Decoder, Decoded};
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 pub use crate::decoder::StdDecoder;
+pub use crate::decoder::{Decoded, Decoder};
 
-use heapless::spsc::Queue;
 use byteorder::ByteOrder;
+use heapless::spsc::Queue;
 
 #[derive(Debug)]
 pub enum Error {
@@ -24,10 +24,10 @@ impl From<ssmarshal::Error> for Error {
     }
 }
 
-pub struct MiniTxRx<RX,TX,RxSize,TxSize>
-    where
-        RxSize: heapless::ArrayLength<u8>,
-        TxSize: heapless::ArrayLength<u8>,
+pub struct MiniTxRx<RX, TX, RxSize, TxSize>
+where
+    RxSize: heapless::ArrayLength<u8>,
+    TxSize: heapless::ArrayLength<u8>,
 {
     rx: RX,
     tx: TX,
@@ -36,18 +36,15 @@ pub struct MiniTxRx<RX,TX,RxSize,TxSize>
     held_byte: Option<u8>,
 }
 
-impl<RX,TX,RxSize,TxSize> MiniTxRx<RX,TX,RxSize,TxSize>
-    where
-        RX: embedded_hal::serial::Read<u8>,
-        TX: embedded_hal::serial::Write<u8>,
-        RxSize: heapless::ArrayLength<u8>,
-        TxSize: heapless::ArrayLength<u8>,
+impl<RX, TX, RxSize, TxSize> MiniTxRx<RX, TX, RxSize, TxSize>
+where
+    RX: embedded_hal::serial::Read<u8>,
+    TX: embedded_hal::serial::Write<u8>,
+    RxSize: heapless::ArrayLength<u8>,
+    TxSize: heapless::ArrayLength<u8>,
 {
     #[inline]
-    pub fn new(
-        tx: TX,
-        rx: RX,
-    ) -> Self {
+    pub fn new(tx: TX, rx: RX) -> Self {
         Self {
             rx,
             tx,
@@ -82,7 +79,7 @@ impl<RX,TX,RxSize,TxSize> MiniTxRx<RX,TX,RxSize,TxSize>
     fn send_byte(&mut self, byte: u8) {
         debug_assert!(self.held_byte.is_none());
         match self.tx.write(byte) {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(nb::Error::WouldBlock) => self.held_byte = Some(byte),
             Err(nb::Error::Other(_e)) => panic!("unreachable"), // not possible according to function definition
         }
@@ -95,7 +92,7 @@ impl<RX,TX,RxSize,TxSize> MiniTxRx<RX,TX,RxSize,TxSize>
         if self.held_byte.is_none() {
             match self.tx_queue.dequeue() {
                 Some(byte) => self.send_byte(byte),
-                None => {},
+                None => {}
             }
         }
     }
@@ -110,13 +107,12 @@ impl<RX,TX,RxSize,TxSize> MiniTxRx<RX,TX,RxSize,TxSize>
             Ok(byte) => {
                 // iprintln!(&mut resources.ITM.stim[0], "serial got byte {}", byte);
                 self.in_bytes.enqueue(byte).expect("failed to enqueue byte");
-            },
-            Err(nb::Error::WouldBlock) => {}, // do nothing, probably task called because of Txe event
+            }
+            Err(nb::Error::WouldBlock) => {} // do nothing, probably task called because of Txe event
             Err(nb::Error::Other(_e)) => {
                 // We have a real error. We should do something here. But what?
-            },
+            }
         }
-
     }
 }
 
@@ -136,37 +132,42 @@ impl<'a> SerializedMsg<'a> {
 /// This is not part of MiniTxRx itself because we do not want to require
 /// access to resources when encoding bytes.
 #[inline]
-pub fn serialize_msg<'a,T: serde::ser::Serialize>(msg: &T, buf: &'a mut [u8]) -> Result<SerializedMsg<'a>,Error> {
+pub fn serialize_msg<'a, T: serde::ser::Serialize>(
+    msg: &T,
+    buf: &'a mut [u8],
+) -> Result<SerializedMsg<'a>, Error> {
     let n_bytes = ssmarshal::serialize(&mut buf[2..], msg)?;
     if n_bytes > u16::max_value() as usize {
         return Err(Error::TooLong);
     }
     byteorder::LittleEndian::write_u16(&mut buf[0..2], n_bytes as u16);
-    Ok(SerializedMsg { buf, total_bytes: n_bytes+2 })
+    Ok(SerializedMsg {
+        buf,
+        total_bytes: n_bytes + 2,
+    })
 }
 
 /// Encode messages into `Vec<u8>`
 ///
 /// This is not part of MiniTxRx itself because we do not want to require
 /// access to resources when encoding bytes.
-#[cfg(feature="std")]
-pub fn serialize_msg_owned<T: serde::ser::Serialize>(msg: &T) -> Result<Vec<u8>,Error> {
+#[cfg(feature = "std")]
+pub fn serialize_msg_owned<T: serde::ser::Serialize>(msg: &T) -> Result<Vec<u8>, Error> {
     let mut dest = vec![0; 1024];
-    let n_bytes = serialize_msg(msg,&mut dest)?.total_bytes;
+    let n_bytes = serialize_msg(msg, &mut dest)?.total_bytes;
     dest.truncate(n_bytes);
     Ok(dest)
 }
 
-pub fn deserialize_owned_borrowed<T>(buf: &[u8], decode_buf: &mut[u8]) -> Result<T,Error>
-    where
-        for<'de> T: serde::de::Deserialize<'de>,
+pub fn deserialize_owned_borrowed<T>(buf: &[u8], decode_buf: &mut [u8]) -> Result<T, Error>
+where
+    for<'de> T: serde::de::Deserialize<'de>,
 {
     let mut decoder = Decoder::new(decode_buf);
 
     let mut result: Option<T> = None;
 
     for char_i in buf {
-
         if result.is_some() {
             // no more characters allowed
             return Err(Error::ExtraCharactersFound);
@@ -175,11 +176,11 @@ pub fn deserialize_owned_borrowed<T>(buf: &[u8], decode_buf: &mut[u8]) -> Result
         match decoder.consume(*char_i) {
             Decoded::Msg(msg) => {
                 result = Some(msg);
-            },
-            Decoded::FrameNotYetComplete => {},
+            }
+            Decoded::FrameNotYetComplete => {}
             Decoded::Error(e) => {
                 return Err(e);
-            },
+            }
         }
     }
 
@@ -189,17 +190,16 @@ pub fn deserialize_owned_borrowed<T>(buf: &[u8], decode_buf: &mut[u8]) -> Result
     }
 }
 
-#[cfg(feature="std")]
-pub fn deserialize_owned<T>(buf: &[u8]) -> Result<T,Error>
-    where
-        for<'de> T: serde::de::Deserialize<'de>,
+#[cfg(feature = "std")]
+pub fn deserialize_owned<T>(buf: &[u8]) -> Result<T, Error>
+where
+    for<'de> T: serde::de::Deserialize<'de>,
 {
     let mut decoder = StdDecoder::new(1024);
 
     let mut result: Option<T> = None;
 
     for char_i in buf {
-
         if result.is_some() {
             // no more characters allowed
             return Err(Error::ExtraCharactersFound);
@@ -208,11 +208,11 @@ pub fn deserialize_owned<T>(buf: &[u8]) -> Result<T,Error>
         match decoder.consume(*char_i) {
             Decoded::Msg(msg) => {
                 result = Some(msg);
-            },
-            Decoded::FrameNotYetComplete => {},
+            }
+            Decoded::FrameNotYetComplete => {}
             Decoded::Error(e) => {
                 return Err(e);
-            },
+            }
         }
     }
 

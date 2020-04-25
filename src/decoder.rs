@@ -6,7 +6,7 @@ pub enum Decoded<T> {
     Error(crate::Error),
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 use log::trace;
 
 /// A struct for decoding bytes.
@@ -15,13 +15,13 @@ use log::trace;
 ///
 /// This is not part of the `MiniTxRx` struct itself because we do not want to
 /// require access to resources when decoding bytes.
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 pub struct StdDecoder {
     buf: Vec<u8>,
     state: FramedReaderState,
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 impl StdDecoder {
     pub fn new(sz: usize) -> Self {
         Self {
@@ -31,8 +31,8 @@ impl StdDecoder {
     }
 
     pub fn consume<T>(&mut self, byte: u8) -> Decoded<T>
-        where
-            for<'de> T: serde::de::Deserialize<'de>,
+    where
+        for<'de> T: serde::de::Deserialize<'de>,
     {
         let (new_state, decoded) = consume_inner(&mut self.state, &mut self.buf, byte);
         self.state = new_state;
@@ -58,8 +58,8 @@ impl<'a> Decoder<'a> {
     }
 
     pub fn consume<T>(&mut self, byte: u8) -> Decoded<T>
-        where
-            for<'de> T: serde::de::Deserialize<'de>,
+    where
+        for<'de> T: serde::de::Deserialize<'de>,
     {
         let (new_state, decoded) = consume_inner(&mut self.state, &mut self.buf, byte);
         self.state = new_state;
@@ -68,9 +68,13 @@ impl<'a> Decoder<'a> {
 }
 
 #[inline]
-fn consume_inner<T>(self_state: &mut FramedReaderState, self_buf: &mut[u8], byte: u8) -> (FramedReaderState, Decoded<T>)
-    where
-        for<'de> T: serde::de::Deserialize<'de>,
+fn consume_inner<T>(
+    self_state: &mut FramedReaderState,
+    self_buf: &mut [u8],
+    byte: u8,
+) -> (FramedReaderState, Decoded<T>)
+where
+    for<'de> T: serde::de::Deserialize<'de>,
 {
     let (new_state, result) = match self_state {
         FramedReaderState::Empty => (FramedReaderState::ReadingHeader(byte), Ok(None)),
@@ -80,11 +84,11 @@ fn consume_inner<T>(self_state: &mut FramedReaderState, self_buf: &mut[u8], byte
             if (len as usize) > self_buf.len() {
                 (FramedReaderState::Error, Err(crate::Error::TooLong))
             } else {
-                if len==0 {
+                if len == 0 {
                     let result: &[u8] = b""; // 0 length slice of u8
                     (FramedReaderState::Empty, Ok(Some(result)))
                 } else {
-                    #[cfg(feature="std")]
+                    #[cfg(feature = "std")]
                     trace!("starting new message with length {}", len);
                     let rms = ReadingMessageState { len: len, idx: 0 };
                     (FramedReaderState::ReadingMessage(rms), Ok(None))
@@ -96,15 +100,12 @@ fn consume_inner<T>(self_state: &mut FramedReaderState, self_buf: &mut[u8], byte
             self_buf[idx as usize] = byte;
             idx += 1;
             if idx < msg_len {
-                #[cfg(feature="std")]
+                #[cfg(feature = "std")]
                 trace!("got byte in message with length {}", msg_len);
-                let rms = ReadingMessageState {
-                    len: msg_len,
-                    idx,
-                };
+                let rms = ReadingMessageState { len: msg_len, idx };
                 (FramedReaderState::ReadingMessage(rms), Ok(None))
             } else if idx == msg_len {
-                #[cfg(feature="std")]
+                #[cfg(feature = "std")]
                 trace!("completed message with length {}", msg_len);
                 let result = &self_buf[0..(idx as usize)];
                 (FramedReaderState::Empty, Ok(Some(result)))
@@ -117,18 +118,12 @@ fn consume_inner<T>(self_state: &mut FramedReaderState, self_buf: &mut[u8], byte
         FramedReaderState::Error => (FramedReaderState::Error, Err(crate::Error::PreviousError)),
     };
     let decoded = match result {
-        Ok(Some(buf)) => {
-            match ssmarshal::deserialize(buf) {
-                Ok((msg, _nbytes)) => Decoded::Msg(msg),
-                Err(e) => Decoded::Error(e.into()),
-            }
+        Ok(Some(buf)) => match ssmarshal::deserialize(buf) {
+            Ok((msg, _nbytes)) => Decoded::Msg(msg),
+            Err(e) => Decoded::Error(e.into()),
         },
-        Ok(None) => {
-            Decoded::FrameNotYetComplete
-        },
-        Err(e) => {
-            Decoded::Error(e)
-        }
+        Ok(None) => Decoded::FrameNotYetComplete,
+        Err(e) => Decoded::Error(e),
     };
     (new_state, decoded)
 }
