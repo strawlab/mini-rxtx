@@ -5,10 +5,10 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
 
 [dependencies]
-nb = "0.1.0"
+nb = "1"
 ssmarshal = {version="1.0", default-features=false}
 byteorder = { version = "1", default-features = false }
-heapless = "0.5"
+heapless = "0.6"
 embedded-hal = "0.2.0"
 serde = {version="1.0", default-features = false }
 log = {version="0.4",optional=true}
