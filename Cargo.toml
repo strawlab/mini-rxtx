@@ -3,6 +3,10 @@ name = "mini-rxtx"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
+description = "serialization and communications for embedded"
+license = "MIT/Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/strawlab/mini-rxtx"
 
 [dependencies]
 nb = "1"
