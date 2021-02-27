@@ -1,0 +1,28 @@
+name: build
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  std-test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run tests
+      run: cargo test --features std
+
+  nostd:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install ARM target
+      run: rustup target add thumbv7em-none-eabihf
+    - name: Build
+      run: cargo build --target thumbv7em-none-eabihf
