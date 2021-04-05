@@ -26,7 +26,7 @@ pub enum Error {
 
 #[cfg(feature = "std")]
 fn _test_error_is_std() {
-    // Compile-time test to ensure BasicFrame implements Send trait.
+    // Compile-time test to ensure Error implements std::error::Error trait.
     fn implements<T: std::error::Error>() {}
     implements::<Error>();
 }
