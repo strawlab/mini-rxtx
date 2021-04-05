@@ -6,14 +6,11 @@ mod decoder;
 pub use crate::decoder::StdDecoder;
 pub use crate::decoder::{Decoded, Decoder};
 
-#[cfg(feature = "std")]
-use thiserror::Error;
-
 use byteorder::ByteOrder;
 use heapless::spsc::Queue;
 
 #[derive(Debug)]
-#[cfg_attr(feature = "std", derive(Error))]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum Error {
     #[cfg_attr(feature = "std", error("serialization failed"))]
     SerializeError(ssmarshal::Error),
