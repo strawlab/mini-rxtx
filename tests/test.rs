@@ -9,6 +9,14 @@ struct MsgType {
 
 #[cfg(feature = "std")]
 #[test]
+fn test_err_fmt() {
+    let e = Error::TooLong;
+    let _estr_debug = format!("{:?}", e);
+    let _estr_display = format!("{}", e);
+}
+
+#[cfg(feature = "std")]
+#[test]
 fn test_roundtrip_std() {
     let msg_orig = MsgType { a: 12345 };
 
