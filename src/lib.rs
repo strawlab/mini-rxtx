@@ -37,24 +37,18 @@ impl From<ssmarshal::Error> for Error {
     }
 }
 
-pub struct MiniTxRx<RX, TX, RxSize, TxSize>
-where
-    RxSize: heapless::ArrayLength<u8>,
-    TxSize: heapless::ArrayLength<u8>,
-{
+pub struct MiniTxRx<RX, TX, const RX_SIZE: usize, const TX_SIZE: usize> {
     rx: RX,
     tx: TX,
-    in_bytes: Queue<u8, RxSize>,
-    tx_queue: Queue<u8, TxSize>,
+    in_bytes: Queue<u8, RX_SIZE>,
+    tx_queue: Queue<u8, TX_SIZE>,
     held_byte: Option<u8>,
 }
 
-impl<RX, TX, RxSize, TxSize> MiniTxRx<RX, TX, RxSize, TxSize>
+impl<RX, TX, const RX_SIZE: usize, const TX_SIZE: usize> MiniTxRx<RX, TX, RX_SIZE, TX_SIZE>
 where
     RX: embedded_hal::serial::Read<u8>,
     TX: embedded_hal::serial::Write<u8>,
-    RxSize: heapless::ArrayLength<u8>,
-    TxSize: heapless::ArrayLength<u8>,
 {
     #[inline]
     pub fn new(tx: TX, rx: RX) -> Self {
