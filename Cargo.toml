@@ -12,7 +12,7 @@ repository = "https://github.com/strawlab/mini-rxtx"
 nb = "1"
 ssmarshal = {version="1.0", default-features=false}
 byteorder = { version = "1", default-features = false }
-heapless = "0.6"
+heapless = "0.7"
 embedded-hal = "0.2.0"
 serde = {version="1.0", default-features = false }
 log = {version="0.4",optional=true}
