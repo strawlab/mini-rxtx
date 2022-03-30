@@ -105,21 +105,31 @@ where
     }
 
     #[inline]
-    pub fn on_interrupt(&mut self) {
+    pub fn on_interrupt(&mut self) -> Result<(), RX::Error> {
         // This is called inside the interrupt handler and should do as little
         // as possible.
 
         // We have a new byte
         match self.rx.read() {
             Ok(byte) => {
-                // iprintln!(&mut resources.ITM.stim[0], "serial got byte {}", byte);
+                #[cfg(feature = "print-defmt")]
+                defmt::trace!("got byte {}", byte);
                 self.in_bytes.enqueue(byte).expect("failed to enqueue byte");
             }
             Err(nb::Error::WouldBlock) => {} // do nothing, probably task called because of Txe event
-            Err(nb::Error::Other(_e)) => {
-                // We have a real error. We should do something here. But what?
+            Err(nb::Error::Other(e)) => {
+                return Err(e);
             }
         }
+        Ok(())
+    }
+
+    pub fn rx(&mut self) -> &mut RX {
+        &mut self.rx
+    }
+
+    pub fn tx(&mut self) -> &mut TX {
+        &mut self.tx
     }
 }
 
